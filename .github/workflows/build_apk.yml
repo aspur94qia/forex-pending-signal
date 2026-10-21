@@ -1,0 +1,43 @@
+name: Build Forex Pending Signal APK
+
+on:
+  push:
+    branches: [ "main", "master" ]
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v4
+
+      - name: Setup Java
+        uses: actions/setup-java@v4
+        with:
+          distribution: 'zulu'
+          java-version: '17'
+
+      - name: Setup Flutter
+        uses: subosito/flutter-action@v2
+        with:
+          flutter-version: '3.24.0'
+          channel: 'stable'
+
+      - name: Create Android Platform Files
+        run: flutter create . --project-name forex_pending_signal --platforms android
+
+      - name: Add Internet Permission
+        run: |
+          sed -i 's/<application/<uses-permission android:name="android.permission.INTERNET"\/><application/g' android/app/src/main/AndroidManifest.xml
+
+      - name: Build Release APK
+        run: |
+          flutter pub get
+          flutter build apk --release
+
+      - name: Upload APK Artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: Aplikasi-Sinyal-Pending-Forex
+          path: build/app/outputs/flutter-apk/app-release.apk
