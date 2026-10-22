@@ -214,11 +214,10 @@ class _UltimateDashboardState extends State<UltimateDashboard> {
       double cur = bt.last.close;
       double chgPct = ((cur - bt[max(0, bt.length - 24)].close) / cur) * 100;
 
-      double ema50 = bt.first.close, ema100 = bt.first.close;
-      double k50 = 2 / 51, k100 = 2 / 101;
+      double ema50 = bt.first.close;
+      double k50 = 2 / 51;
       for (var c in bt) {
         ema50 = (c.close * k50) + (ema50 * (1 - k50));
-        ema100 = (c.close * k100) + (ema100 * (1 - k100));
       }
       bool isBull = cur >= ema50;
 
@@ -235,7 +234,6 @@ class _UltimateDashboardState extends State<UltimateDashboard> {
       double atr = atrSum / 14;
       double rsi = 100 - (100 / (1 + ((gain / 14) / ((loss / 14) == 0 ? 0.0001 : (loss / 14)))));
 
-      // Backtest 1000 Candle
       int wins = 0, losses = 0;
       double netPips = 0, runEma = bt.first.close;
       for (int i = 35; i < bt.length - 15; i += 3) {
@@ -382,20 +380,10 @@ class _UltimateDashboardState extends State<UltimateDashboard> {
             label: const Text('BUKA MT5 SEKARANG'),
             onPressed: () async {
               Navigator.pop(ctx);
-              final Uri mt5Uri = Uri.parse('metatrader5://');
-              final Uri intentUri = Uri.parse('intent://#Intent;package=net.metaquotes.metatrader5;end');
+              const platform = MethodChannel('mt5_launcher');
               try {
-                if (await false) {
-                  
-                } else {
-                  
-                }
-              } catch (_) {
-                await launchUrl(
-                  Uri.parse('https://play.google.com/store/apps/details?id=net.metaquotes.metatrader5'),
-                  mode: LaunchMode.externalApplication,
-                );
-              }
+                await platform.invokeMethod('openMT5');
+              } catch (_) {}
             },
           ),
         ],
@@ -605,7 +593,6 @@ class _UltimateDashboardState extends State<UltimateDashboard> {
               ],
             ),
             const SizedBox(height: 8),
-            // Kotak Hasil Backtest Real-Time 1000 Candle
             Container(
               width: double.infinity,
               padding: const EdgeInsets.all(8),
@@ -626,7 +613,6 @@ class _UltimateDashboardState extends State<UltimateDashboard> {
               ),
             ),
             const SizedBox(height: 6),
-            // Kotak Status Berita Fundamental
             Container(
               width: double.infinity,
               padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
@@ -641,7 +627,6 @@ class _UltimateDashboardState extends State<UltimateDashboard> {
               ),
             ),
             const SizedBox(height: 10),
-            // Grafik Candlestick Visual
             Container(
               height: 130,
               width: double.infinity,
@@ -661,7 +646,6 @@ class _UltimateDashboardState extends State<UltimateDashboard> {
               ),
             ),
             const SizedBox(height: 12),
-            // HANYA 1 KOTAK SINYAL FOKUS SEARAH TREN
             Container(
               width: double.infinity,
               padding: const EdgeInsets.all(12),

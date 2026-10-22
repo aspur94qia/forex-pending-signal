@@ -27,41 +27,10 @@ jobs:
       - name: Create Android Platform Files
         run: flutter create . --project-name forex_pending_signal --platforms android
 
-      - name: Add Internet Permission & Native MT5 Launcher
+      - name: Add Internet Permission
         run: |
-          sed -i 's/<application/<uses-permission android:name="android.permission.INTERNET"\/><queries><package android:name="net.metaquotes.metatrader5"\/><package android:name="net.metaquotes.metatrader4"\/><\/queries><application/g' android/app/src/main/AndroidManifest.xml
-          cat << 'KOTLIN' > android/app/src/main/kotlin/com/example/forex_pending_signal/MainActivity.kt
-          package com.example.forex_pending_signal
-          import android.content.Intent
-          import android.net.Uri
-          import io.flutter.embedding.android.FlutterActivity
-          import io.flutter.embedding.engine.FlutterEngine
-          import io.flutter.plugin.common.MethodChannel
-
-          class MainActivity: FlutterActivity() {
-              private val CHANNEL = "mt5_launcher"
-              override fun configureFlutterEngine(flutterEngine: FlutterEngine) {
-                  super.configureFlutterEngine(flutterEngine)
-                  MethodChannel(flutterEngine.dartExecutor.binaryMessenger, CHANNEL).setMethodCallHandler { call, result ->
-                      if (call.method == "openMT5") {
-                          val launchIntent = packageManager.getLaunchIntentForPackage("net.metaquotes.metatrader5")
-                              ?: packageManager.getLaunchIntentForPackage("net.metaquotes.metatrader4")
-                          if (launchIntent != null) {
-                              startActivity(launchIntent)
-                              result.success(true)
-                          } else {
-                              val marketIntent = Intent(Intent.ACTION_VIEW, Uri.parse("market://details?id=net.metaquotes.metatrader5"))
-                              marketIntent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
-                              startActivity(marketIntent)
-                              result.success(false)
-                          }
-                      } else {
-                          result.notImplemented()
-                      }
-                  }
-              }
-          }
-          KOTLIN
+          sed -i 's/<application/<uses-permission android:name="android.permission.INTERNET"\/><queries><package android:name="net.metaquotes.metatrader5"\/><\/queries><application/g' android/app/src/main/AndroidManifest.xml
+          printf 'package com.example.forex_pending_signal\nimport android.content.Intent\nimport android.net.Uri\nimport io.flutter.embedding.android.FlutterActivity\nimport io.flutter.embedding.engine.FlutterEngine\nimport io.flutter.plugin.common.MethodChannel\nclass MainActivity: FlutterActivity() {\n  override fun configureFlutterEngine(flutterEngine: FlutterEngine) {\n    super.configureFlutterEngine(flutterEngine)\n    MethodChannel(flutterEngine.dartExecutor.binaryMessenger, "mt5_launcher").setMethodCallHandler { call, result ->\n      if (call.method == "openMT5") {\n        val i = packageManager.getLaunchIntentForPackage("net.metaquotes.metatrader5") ?: packageManager.getLaunchIntentForPackage("net.metaquotes.metatrader4")\n        if (i != null) { startActivity(i); result.success(true) } else {\n          val m = Intent(Intent.ACTION_VIEW, Uri.parse("market://details?id=net.metaquotes.metatrader5"))\n          m.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)\n          startActivity(m)\n          result.success(false)\n        }\n      } else { result.notImplemented() }\n    }\n  }\n}\n' > android/app/src/main/kotlin/com/example/forex_pending_signal/MainActivity.kt
 
       - name: Build Release APK
         run: |
