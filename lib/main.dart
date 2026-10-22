@@ -12,7 +12,7 @@ class ForexUltimateApp extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return MaterialApp(
-      title: 'Sinyal S&R Ultimate V3',
+      title: 'USDJPY & BTCUSD Pro',
       debugShowCheckedModeBanner: false,
       theme: ThemeData.dark().copyWith(
         scaffoldBackgroundColor: const Color(0xFF060911),
@@ -35,13 +35,10 @@ class UltimateDashboard extends StatefulWidget {
 }
 
 class _UltimateDashboardState extends State<UltimateDashboard> {
+  // HANYA FOKUS 2 PAIR: USD/JPY DAN BTC/USD
   final List<Map<String, dynamic>> pairs = [
-    {'name': 'XAU/USD (Gold)', 'mt5': 'XAUUSD', 'symbol': 'GC=F', 'decimals': 2, 'pip': 0.1, 'ccy1': 'XAU', 'ccy2': 'USD'},
-    {'name': 'EUR/USD', 'mt5': 'EURUSD', 'symbol': 'EURUSD=X', 'decimals': 5, 'pip': 0.0001, 'ccy1': 'EUR', 'ccy2': 'USD'},
-    {'name': 'GBP/USD', 'mt5': 'GBPUSD', 'symbol': 'GBPUSD=X', 'decimals': 5, 'pip': 0.0001, 'ccy1': 'GBP', 'ccy2': 'USD'},
     {'name': 'USD/JPY', 'mt5': 'USDJPY', 'symbol': 'JPY=X', 'decimals': 3, 'pip': 0.01, 'ccy1': 'USD', 'ccy2': 'JPY'},
-    {'name': 'AUD/USD', 'mt5': 'AUDUSD', 'symbol': 'AUDUSD=X', 'decimals': 5, 'pip': 0.0001, 'ccy1': 'AUD', 'ccy2': 'USD'},
-    {'name': 'USD/CAD', 'mt5': 'USDCAD', 'symbol': 'CAD=X', 'decimals': 5, 'pip': 0.0001, 'ccy1': 'USD', 'ccy2': 'CAD'},
+    {'name': 'BTC/USD (Bitcoin)', 'mt5': 'BTCUSD', 'symbol': 'BTC-USD', 'decimals': 1, 'pip': 1.0, 'ccy1': 'BTC', 'ccy2': 'USD'},
   ];
 
   String selectedTf = '15m';
@@ -53,7 +50,6 @@ class _UltimateDashboardState extends State<UltimateDashboard> {
   double riskPercent = 2.0;
   List<Map<String, dynamic>> signals = [];
   List<Map<String, dynamic>> newsList = [];
-  String strengthSummary = 'Menghitung kekuatan...';
 
   @override
   void initState() {
@@ -85,7 +81,7 @@ class _UltimateDashboardState extends State<UltimateDashboard> {
     if (h >= 0 && h < 9) a.add('Tokyo');
     if (h >= 7 && h < 16) a.add('London');
     if (h >= 12 && h < 21) a.add('New York');
-    return a.isEmpty ? 'Pasar Transisi' : 'Sesi: ${a.join(" + ")} 🔥';
+    return a.isEmpty ? 'Pasar Crypto 24/7 Aktif' : 'Sesi: ${a.join(" + ")} 🔥';
   }
 
   Future<void> fetchEverything({bool silent = false}) async {
@@ -97,27 +93,14 @@ class _UltimateDashboardState extends State<UltimateDashboard> {
     }
     await fetchFundamentalNews();
     List<Map<String, dynamic>> temp = [];
-    Map<String, double> ccy = {};
 
     for (var p in pairs) {
       final res = await analyzeAndBacktest1000(p);
-      if (res != null) {
-        temp.add(res);
-        double chg = res['change_pct'];
-        ccy[p['ccy1']] = (ccy[p['ccy1']] ?? 0) + chg;
-        ccy[p['ccy2']] = (ccy[p['ccy2']] ?? 0) - chg;
-      }
-    }
-
-    var sorted = ccy.entries.toList()..sort((a, b) => b.value.compareTo(a.value));
-    if (sorted.isNotEmpty) {
-      strengthSummary = sorted
-          .map((e) => '${e.key}(${e.value >= 0 ? "+" : ""}${e.value.toStringAsFixed(1)})')
-          .join(' > ');
+      if (res != null) temp.add(res);
     }
 
     for (var s in temp) {
-      if (s['score'] >= 85 && s['pips_to_entry_num'] <= 15) {
+      if (s['min_pips'] <= 15) {
         HapticFeedback.heavyImpact();
         SystemSound.play(SystemSoundType.alert);
         break;
@@ -212,7 +195,6 @@ class _UltimateDashboardState extends State<UltimateDashboard> {
 
       List<CandleData> bt = candles.length > 1000 ? candles.sublist(candles.length - 1000) : candles;
       double cur = bt.last.close;
-      double chgPct = ((cur - bt[max(0, bt.length - 24)].close) / cur) * 100;
 
       double ema50 = bt.first.close;
       double k50 = 2 / 51;
@@ -234,6 +216,7 @@ class _UltimateDashboardState extends State<UltimateDashboard> {
       double atr = atrSum / 14;
       double rsi = 100 - (100 / (1 + ((gain / 14) / ((loss / 14) == 0 ? 0.0001 : (loss / 14)))));
 
+      // Backtest 1000 Candle
       int wins = 0, losses = 0;
       double netPips = 0, runEma = bt.first.close;
       for (int i = 35; i < bt.length - 15; i += 3) {
@@ -268,20 +251,40 @@ class _UltimateDashboardState extends State<UltimateDashboard> {
       }
 
       double btWr = (wins + losses) > 0 ? (wins / (wins + losses)) * 100 : 79.0;
-      double entry = isBull ? supLevel + (atr * 0.12) : resLevel - (atr * 0.12);
-      double sl = isBull ? supLevel - (atr * 1.2) : resLevel + (atr * 1.2);
-      double tp1 = isBull ? entry + (atr * 1.6) : entry - (atr * 1.6);
-      double tp2 = isBull ? max(resLevel - (atr * 0.15), tp1 + atr) : min(supLevel + (atr * 0.15), tp1 - atr);
-      double bep = isBull ? entry + (atr * 0.9) : entry - (atr * 0.9);
 
-      double pipsToEn = (cur - entry).abs() / pip;
-      double slPips = (entry - sl).abs() / pip;
+      // Hitung SEMUA Sinyal: BUY LIMIT, SELL LIMIT, BUY STOP, SELL STOP
+      double buyLimit = supLevel + (atr * 0.12);
+      double buySL = supLevel - (atr * 1.25);
+      double buyTP1 = buyLimit + (atr * 1.6);
+      double buyTP2 = max(resLevel - (atr * 0.15), buyTP1 + atr);
+      double buyBEP = buyLimit + (atr * 0.85);
+
+      double sellLimit = resLevel - (atr * 0.12);
+      double sellSL = resLevel + (atr * 1.25);
+      double sellTP1 = sellLimit - (atr * 1.6);
+      double sellTP2 = min(supLevel + (atr * 0.15), sellTP1 - atr);
+      double sellBEP = sellLimit - (atr * 0.85);
+
+      double buyStop = resLevel + (atr * 0.25);
+      double buyStopSL = resLevel - (atr * 1.0);
+      double buyStopTP = buyStop + (atr * 2.0);
+
+      double sellStop = supLevel - (atr * 0.25);
+      double sellStopSL = supLevel + (atr * 1.0);
+      double sellStopTP = sellStop - (atr * 2.0);
+
+      double pipsToBuy = (cur - buyLimit).abs() / pip;
+      double pipsToSell = (sellLimit - cur).abs() / pip;
+      bool nearBuy = pipsToBuy <= pipsToSell;
+
+      double slPipsBuy = max(1.0, (buyLimit - buySL).abs() / pip);
+      double slPipsSell = max(1.0, (sellSL - sellLimit).abs() / pip);
       double riskUsd = accountBalance * (riskPercent / 100.0);
-      double lot = max(0.01, (riskUsd / (slPips * 1.0)) * 0.1);
+      double lotBuy = max(0.01, (riskUsd / slPipsBuy) * 0.1);
+      double lotSell = max(0.01, (riskUsd / slPipsSell) * 0.1);
 
       final fund = checkFund(p['ccy1'], p['ccy2']);
-      int score = btWr.round().clamp(68, 94);
-      if (fund['danger'] == true) score -= 12;
+      int score = btWr.round().clamp(70, 95);
 
       return {
         'name': p['name'],
@@ -292,16 +295,29 @@ class _UltimateDashboardState extends State<UltimateDashboard> {
         'resistance': resLevel,
         'rsi': rsi,
         'is_bull': isBull,
-        'signal_type': isBull ? 'BUY LIMIT' : 'SELL LIMIT',
-        'entry': entry,
-        'tp1': tp1,
-        'tp2': tp2,
-        'sl': sl,
-        'bep': bep,
-        'lot': lot.toStringAsFixed(2),
+        'near_buy': nearBuy,
+        'min_pips': min(pipsToBuy, pipsToSell),
+        'pips_to_buy': pipsToBuy.toStringAsFixed(0),
+        'pips_to_sell': pipsToSell.toStringAsFixed(0),
+        'lot_buy': lotBuy.toStringAsFixed(2),
+        'lot_sell': lotSell.toStringAsFixed(2),
         'risk_dollar': riskUsd.toStringAsFixed(2),
-        'pips_to_entry': pipsToEn.toStringAsFixed(0),
-        'pips_to_entry_num': pipsToEn,
+        'buy_entry': buyLimit,
+        'buy_tp1': buyTP1,
+        'buy_tp2': buyTP2,
+        'buy_bep': buyBEP,
+        'buy_sl': buySL,
+        'sell_entry': sellLimit,
+        'sell_tp1': sellTP1,
+        'sell_tp2': sellTP2,
+        'sell_bep': sellBEP,
+        'sell_sl': sellSL,
+        'buystop_entry': buyStop,
+        'buystop_tp': buyStopTP,
+        'buystop_sl': buyStopSL,
+        'sellstop_entry': sellStop,
+        'sellstop_tp': sellStopTP,
+        'sellstop_sl': sellStopSL,
         'bt_candles': bt.length,
         'bt_winrate': btWr.toStringAsFixed(1),
         'bt_wins': wins,
@@ -309,8 +325,7 @@ class _UltimateDashboardState extends State<UltimateDashboard> {
         'bt_pips': netPips.toStringAsFixed(0),
         'fund_danger': fund['danger'],
         'fund_text': fund['text'],
-        'score': score.clamp(60, 97),
-        'change_pct': chgPct,
+        'score': score,
         'candles': chartC,
       };
     } catch (_) {
@@ -329,14 +344,8 @@ class _UltimateDashboardState extends State<UltimateDashboard> {
     );
   }
 
-  Future<void> launchMT5WithSmartFill(Map<String, dynamic> s) async {
-    final int d = s['decimals'];
-    final String entryStr = s['entry'].toStringAsFixed(d);
-    final String slStr = s['sl'].toStringAsFixed(d);
-    final String tp1Str = s['tp1'].toStringAsFixed(d);
-    final String tp2Str = s['tp2'].toStringAsFixed(d);
-
-    await Clipboard.setData(ClipboardData(text: entryStr));
+  Future<void> launchMT5Order(Map<String, dynamic> s, String orderType, String entry, String sl, String tp1, String tp2, String lot) async {
+    await Clipboard.setData(ClipboardData(text: entry));
     if (!mounted) return;
 
     showDialog(
@@ -344,7 +353,7 @@ class _UltimateDashboardState extends State<UltimateDashboard> {
       builder: (ctx) => AlertDialog(
         backgroundColor: const Color(0xFF151F32),
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
-        title: Text('🚀 Eksekusi MT5 (${s['mt5_symbol']})',
+        title: Text('🚀 $orderType (${s['mt5_symbol']})',
             style: const TextStyle(fontSize: 15, fontWeight: FontWeight.bold)),
         content: Column(
           mainAxisSize: MainAxisSize.min,
@@ -358,18 +367,18 @@ class _UltimateDashboardState extends State<UltimateDashboard> {
                 border: Border.all(color: Colors.tealAccent),
               ),
               child: Text(
-                '✅ Harga Entry ($entryStr) SUDAH DISALIN OTOMATIS!\nSaat MT5 terbuka, tinggal PASTE di kolom Harga Pending Order.',
+                '✅ Harga Entry ($entry) SUDAH DISALIN OTOMATIS!\nSaat MT5 terbuka, tinggal PASTE di kolom Harga Pending Order.',
                 style: const TextStyle(fontSize: 11, color: Colors.tealAccent),
               ),
             ),
             const SizedBox(height: 10),
-            Text('📋 Contekan Cepat (${s['signal_type']} | Lot: ${s['lot']}):',
+            Text('📋 Contekan Cepat ($orderType | Lot: $lot):',
                 style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold)),
             const SizedBox(height: 6),
-            _quickChip('1. Copy Entry', entryStr),
-            _quickChip('2. Copy SL', slStr),
-            _quickChip('3. Copy TP 1', tp1Str),
-            _quickChip('4. Copy TP 2', tp2Str),
+            _quickChip('1. Copy Entry', entry),
+            _quickChip('2. Copy SL', sl),
+            _quickChip('3. Copy TP 1', tp1),
+            if (tp2.isNotEmpty) _quickChip('4. Copy TP 2', tp2),
           ],
         ),
         actions: [
@@ -468,7 +477,7 @@ class _UltimateDashboardState extends State<UltimateDashboard> {
       appBar: AppBar(
         backgroundColor: const Color(0xFF121A2B),
         elevation: 0,
-        title: const Text('⚡ Sinyal S&R Ultimate V3', style: TextStyle(fontSize: 15, fontWeight: FontWeight.bold)),
+        title: const Text('⚡ USDJPY & BTCUSD Pro', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
         actions: [
           GestureDetector(
             onTap: () => setState(() => autoRefresh = !autoRefresh),
@@ -495,24 +504,17 @@ class _UltimateDashboardState extends State<UltimateDashboard> {
         children: [
           Container(
             width: double.infinity,
-            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 7),
             color: const Color(0xFF0B101B),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
+            child: Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
-                Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                  children: [
-                    Text(getCurrentMarketSession(), style: const TextStyle(fontSize: 11, color: Colors.amberAccent, fontWeight: FontWeight.bold)),
-                    GestureDetector(
-                      onTap: openCalcDialog,
-                      child: Text('Modal: \$${accountBalance.toStringAsFixed(0)} (Risk ${riskPercent.toStringAsFixed(1)}%) ⚙️',
-                          style: const TextStyle(fontSize: 11, color: Colors.cyanAccent, fontWeight: FontWeight.bold)),
-                    ),
-                  ],
+                Text(getCurrentMarketSession(), style: const TextStyle(fontSize: 11, color: Colors.amberAccent, fontWeight: FontWeight.bold)),
+                GestureDetector(
+                  onTap: openCalcDialog,
+                  child: Text('Modal: \$${accountBalance.toStringAsFixed(0)} (Risk ${riskPercent.toStringAsFixed(1)}%) ⚙️',
+                      style: const TextStyle(fontSize: 11, color: Colors.cyanAccent, fontWeight: FontWeight.bold)),
                 ),
-                const SizedBox(height: 3),
-                Text('💪 Kekuatan: $strengthSummary', maxLines: 1, overflow: TextOverflow.ellipsis, style: const TextStyle(fontSize: 10, color: Colors.white70)),
               ],
             ),
           ),
@@ -558,10 +560,10 @@ class _UltimateDashboardState extends State<UltimateDashboard> {
   Widget _buildCard(Map<String, dynamic> s) {
     final int d = s['decimals'];
     final bool isBull = s['is_bull'];
-    final Color mainColor = isBull ? Colors.green : Colors.red;
+    final bool nearBuy = s['near_buy'];
 
     return Card(
-      margin: const EdgeInsets.only(bottom: 16),
+      margin: const EdgeInsets.only(bottom: 18),
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
       child: Padding(
         padding: const EdgeInsets.all(14),
@@ -574,9 +576,10 @@ class _UltimateDashboardState extends State<UltimateDashboard> {
                 Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Text(s['name'], style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
+                    Text(s['name'], style: const TextStyle(fontSize: 19, fontWeight: FontWeight.bold)),
+                    const SizedBox(height: 2),
                     Text(
-                      'Trend Utama: ${isBull ? "BULLISH 📈" : "BEARISH 📉"}  |  RSI: ${s['rsi'].toStringAsFixed(1)}',
+                      'Trend EMA50: ${isBull ? "BULLISH 📈" : "BEARISH 📉"}  |  RSI: ${s['rsi'].toStringAsFixed(1)}',
                       style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: isBull ? Colors.greenAccent : Colors.redAccent),
                     ),
                   ],
@@ -588,14 +591,15 @@ class _UltimateDashboardState extends State<UltimateDashboard> {
                     borderRadius: BorderRadius.circular(8),
                     border: Border.all(color: Colors.amberAccent),
                   ),
-                  child: Text('⚡ Skor: ${s['score']}%', style: const TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: Colors.amberAccent)),
+                  child: Text('⚡ Akurasi: ${s['score']}%', style: const TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: Colors.amberAccent)),
                 ),
               ],
             ),
             const SizedBox(height: 8),
+            // Kotak Backtest 1000 Candle (Rapi 2 Baris)
             Container(
               width: double.infinity,
-              padding: const EdgeInsets.all(8),
+              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 7),
               decoration: BoxDecoration(
                 color: Colors.blueAccent.withOpacity(0.1),
                 borderRadius: BorderRadius.circular(8),
@@ -605,17 +609,16 @@ class _UltimateDashboardState extends State<UltimateDashboard> {
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
                   Text('📊 Backtest (${s['bt_candles']} Candle):', style: const TextStyle(fontSize: 11, fontWeight: FontWeight.bold)),
-                  Text('🏆 Winrate: ${s['bt_winrate']}% (${s['bt_wins']}W/${s['bt_losses']}L)',
+                  Text('🏆 ${s['bt_winrate']}% (${s['bt_wins']}W / ${s['bt_losses']}L)',
                       style: const TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: Colors.greenAccent)),
-                  Text('${int.parse(s['bt_pips']) >= 0 ? "+" : ""}${s['bt_pips']} Pips',
-                      style: const TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: Colors.amberAccent)),
                 ],
               ),
             ),
             const SizedBox(height: 6),
+            // Kotak Status Berita Fundamental
             Container(
               width: double.infinity,
-              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
+              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
               decoration: BoxDecoration(
                 color: s['fund_danger'] ? Colors.red.withOpacity(0.2) : Colors.teal.withOpacity(0.12),
                 borderRadius: BorderRadius.circular(8),
@@ -626,9 +629,25 @@ class _UltimateDashboardState extends State<UltimateDashboard> {
                 style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: s['fund_danger'] ? Colors.redAccent : Colors.tealAccent),
               ),
             ),
-            const SizedBox(height: 10),
+            const SizedBox(height: 8),
+            // Bar Harga Live & Jarak Pips
             Container(
-              height: 130,
+              padding: const EdgeInsets.all(8),
+              decoration: BoxDecoration(color: Colors.black26, borderRadius: BorderRadius.circular(8)),
+              child: Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  Text('Live: ${s['current'].toStringAsFixed(d)}',
+                      style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: Colors.cyanAccent)),
+                  Text('🟢 Ke Buy: ${s['pips_to_buy']} Pips', style: const TextStyle(fontSize: 11, color: Colors.greenAccent)),
+                  Text('🔴 Ke Sell: ${s['pips_to_sell']} Pips', style: const TextStyle(fontSize: 11, color: Colors.redAccent)),
+                ],
+              ),
+            ),
+            const SizedBox(height: 10),
+            // Grafik Candlestick Visual
+            Container(
+              height: 135,
               width: double.infinity,
               padding: const EdgeInsets.all(8),
               decoration: BoxDecoration(
@@ -646,53 +665,78 @@ class _UltimateDashboardState extends State<UltimateDashboard> {
               ),
             ),
             const SizedBox(height: 12),
-            Container(
-              width: double.infinity,
-              padding: const EdgeInsets.all(12),
-              decoration: BoxDecoration(
-                color: mainColor.withOpacity(0.12),
-                borderRadius: BorderRadius.circular(10),
-                border: Border.all(color: mainColor, width: 1.5),
-              ),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                    children: [
-                      Text(
-                        isBull ? '🟢 SINYAL UTAMA: BUY LIMIT (IKUTI TREN)' : '🔴 SINYAL UTAMA: SELL LIMIT (IKUTI TREN)',
-                        style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: isBull ? Colors.greenAccent : Colors.redAccent),
-                      ),
-                      Text('Jarak: ${s['pips_to_entry']} Pips', style: const TextStyle(fontSize: 11, color: Colors.cyanAccent)),
-                    ],
+            // TAMPILKAN SEMUA SINYAL: BUY LIMIT & SELL LIMIT BERDAMPINGAN
+            Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Expanded(
+                  child: _buildOrderBox(
+                    s: s,
+                    title: '🟢 BUY LIMIT',
+                    badge: nearBuy ? '🔥 DEKAT HARGA' : (isBull ? '⭐ SEARAH TREN' : 'Pantulan Support'),
+                    color: Colors.green,
+                    highlight: nearBuy || isBull,
+                    lot: s['lot_buy'],
+                    entry: s['buy_entry'].toStringAsFixed(d),
+                    tp1: s['buy_tp1'].toStringAsFixed(d),
+                    tp2: s['buy_tp2'].toStringAsFixed(d),
+                    bep: s['buy_bep'].toStringAsFixed(d),
+                    sl: s['buy_sl'].toStringAsFixed(d),
                   ),
-                  const SizedBox(height: 4),
-                  Text('Saran Ukuran Lot: ${s['lot']} Lot (Risiko \$${s['risk_dollar']})  |  Live: ${s['current'].toStringAsFixed(d)}',
-                      style: const TextStyle(fontSize: 11, color: Colors.amberAccent)),
-                  const Divider(height: 14),
-                  _priceLine('🎯 Harga Entry (${s['signal_type']})', s['entry'].toStringAsFixed(d)),
-                  _priceLine('✅ Take Profit 1 (Target Utama)', s['tp1'].toStringAsFixed(d)),
-                  _priceLine('🚀 Take Profit 2 (Target Maksimal)', s['tp2'].toStringAsFixed(d)),
-                  _priceLine('🛡️ Geser SL ke BEP+ jika sentuh', s['bep'].toStringAsFixed(d)),
-                  _priceLine('❌ Stop Loss (SL Aman)', s['sl'].toStringAsFixed(d)),
-                  const SizedBox(height: 10),
-                  SizedBox(
-                    width: double.infinity,
-                    child: ElevatedButton.icon(
-                      style: ElevatedButton.styleFrom(
-                        backgroundColor: Colors.blueAccent,
-                        padding: const EdgeInsets.symmetric(vertical: 10),
-                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                ),
+                const SizedBox(width: 8),
+                Expanded(
+                  child: _buildOrderBox(
+                    s: s,
+                    title: '🔴 SELL LIMIT',
+                    badge: !nearBuy ? '🔥 DEKAT HARGA' : (!isBull ? '⭐ SEARAH TREN' : 'Pantulan Resist'),
+                    color: Colors.red,
+                    highlight: !nearBuy || !isBull,
+                    lot: s['lot_sell'],
+                    entry: s['sell_entry'].toStringAsFixed(d),
+                    tp1: s['sell_tp1'].toStringAsFixed(d),
+                    tp2: s['sell_tp2'].toStringAsFixed(d),
+                    bep: s['sell_bep'].toStringAsFixed(d),
+                    sl: s['sell_sl'].toStringAsFixed(d),
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 8),
+            // Panel Tambahan: BUY STOP & SELL STOP (Breakout)
+            ExpansionTile(
+              tilePadding: EdgeInsets.zero,
+              title: const Text('🚀 Lihat Sinyal Breakout (Buy Stop & Sell Stop)',
+                  style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: Colors.amberAccent)),
+              children: [
+                Row(
+                  children: [
+                    Expanded(
+                      child: _buildStopBox(
+                        s: s,
+                        title: '🔼 BUY STOP',
+                        color: Colors.tealAccent,
+                        lot: s['lot_buy'],
+                        entry: s['buystop_entry'].toStringAsFixed(d),
+                        tp: s['buystop_tp'].toStringAsFixed(d),
+                        sl: s['buystop_sl'].toStringAsFixed(d),
                       ),
-                      icon: const Icon(Icons.rocket_launch, size: 16, color: Colors.white),
-                      label: const Text('BUKA MT5 & COPY OTOMATIS',
-                          style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: Colors.white)),
-                      onPressed: () => launchMT5WithSmartFill(s),
                     ),
-                  ),
-                ],
-              ),
+                    const SizedBox(width: 8),
+                    Expanded(
+                      child: _buildStopBox(
+                        s: s,
+                        title: '🔽 SELL STOP',
+                        color: Colors.orangeAccent,
+                        lot: s['lot_sell'],
+                        entry: s['sellstop_entry'].toStringAsFixed(d),
+                        tp: s['sellstop_tp'].toStringAsFixed(d),
+                        sl: s['sellstop_sl'].toStringAsFixed(d),
+                      ),
+                    ),
+                  ],
+                ),
+              ],
             ),
           ],
         ),
@@ -700,20 +744,109 @@ class _UltimateDashboardState extends State<UltimateDashboard> {
     );
   }
 
-  Widget _priceLine(String label, String val) {
+  Widget _buildOrderBox({
+    required Map<String, dynamic> s,
+    required String title,
+    required String badge,
+    required Color color,
+    required bool highlight,
+    required String lot,
+    required String entry,
+    required String tp1,
+    required String tp2,
+    required String bep,
+    required String sl,
+  }) {
+    return Container(
+      padding: const EdgeInsets.all(10),
+      decoration: BoxDecoration(
+        color: color.withOpacity(highlight ? 0.14 : 0.06),
+        borderRadius: BorderRadius.circular(10),
+        border: Border.all(color: highlight ? color : color.withOpacity(0.35), width: highlight ? 1.5 : 1.0),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(title, style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: color)),
+          const SizedBox(height: 2),
+          Text(badge, style: const TextStyle(fontSize: 10, fontWeight: FontWeight.bold, color: Colors.amberAccent)),
+          Text('Lot: $lot (\$${s['risk_dollar']})', style: const TextStyle(fontSize: 10, color: Colors.white70)),
+          const Divider(height: 10),
+          _priceRow('Entry', entry),
+          _priceRow('TP 1', tp1),
+          _priceRow('TP 2', tp2),
+          _priceRow('BEP+', bep),
+          _priceRow('SL', sl),
+          const SizedBox(height: 8),
+          SizedBox(
+            width: double.infinity,
+            child: ElevatedButton(
+              style: ElevatedButton.styleFrom(
+                backgroundColor: color.withOpacity(0.8),
+                padding: const EdgeInsets.symmetric(vertical: 6),
+                minimumSize: const Size(0, 30),
+              ),
+              onPressed: () => launchMT5Order(s, title, entry, sl, tp1, tp2, lot),
+              child: const Text('🚀 Buka MT5', style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: Colors.white)),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildStopBox({
+    required Map<String, dynamic> s,
+    required String title,
+    required Color color,
+    required String lot,
+    required String entry,
+    required String tp,
+    required String sl,
+  }) {
+    return Container(
+      padding: const EdgeInsets.all(8),
+      decoration: BoxDecoration(
+        color: Colors.black26,
+        borderRadius: BorderRadius.circular(8),
+        border: Border.all(color: color.withOpacity(0.4)),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(title, style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: color)),
+          const Divider(height: 8),
+          _priceRow('Entry', entry),
+          _priceRow('TP', tp),
+          _priceRow('SL', sl),
+          const SizedBox(height: 6),
+          SizedBox(
+            width: double.infinity,
+            child: OutlinedButton(
+              style: OutlinedButton.styleFrom(padding: const EdgeInsets.symmetric(vertical: 4), minimumSize: const Size(0, 26)),
+              onPressed: () => launchMT5Order(s, title, entry, sl, tp, '', lot),
+              child: const Text('🚀 Buka MT5', style: TextStyle(fontSize: 10)),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _priceRow(String label, String val) {
     return InkWell(
       onTap: () => copySingle(label, val),
       child: Padding(
-        padding: const EdgeInsets.symmetric(vertical: 3.5),
+        padding: const EdgeInsets.symmetric(vertical: 2.5),
         child: Row(
           mainAxisAlignment: MainAxisAlignment.spaceBetween,
           children: [
-            Text(label, style: const TextStyle(fontSize: 12, color: Colors.white70)),
+            Text('$label:', style: const TextStyle(fontSize: 11, color: Colors.white70)),
             Row(
               children: [
-                Text(val, style: const TextStyle(fontSize: 13, fontWeight: FontWeight.bold)),
-                const SizedBox(width: 6),
-                const Icon(Icons.copy, size: 13, color: Colors.white54),
+                Text(val, style: const TextStyle(fontSize: 11.5, fontWeight: FontWeight.bold)),
+                const SizedBox(width: 3),
+                const Icon(Icons.copy, size: 10, color: Colors.white54),
               ],
             ),
           ],
