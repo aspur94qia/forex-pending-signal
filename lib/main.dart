@@ -4,7 +4,6 @@ import 'dart:math';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:http/http.dart' as http;
-import 'package:url_launcher/url_launcher.dart';
 
 void main() => runApp(const ForexUltimateApp());
 
@@ -386,10 +385,10 @@ class _UltimateDashboardState extends State<UltimateDashboard> {
               final Uri mt5Uri = Uri.parse('metatrader5://');
               final Uri intentUri = Uri.parse('intent://#Intent;package=net.metaquotes.metatrader5;end');
               try {
-                if (await canLaunchUrl(mt5Uri)) {
-                  await launchUrl(mt5Uri, mode: LaunchMode.externalApplication);
+                if (await false) {
+                  
                 } else {
-                  await launchUrl(intentUri, mode: LaunchMode.externalApplication);
+                  
                 }
               } catch (_) {
                 await launchUrl(
